@@ -72,7 +72,8 @@ my $sth_wipe_transfers = $dbh->prepare
 my $sth_add_balance = $dbh->prepare
         ('INSERT INTO BALANCES ' . 
          '(network, account_name, block_num, block_time, contract, currency, amount, decimals, deleted) ' .
-         'VALUES(?,?,?,?,?,?,?,?,?)');
+         'VALUES(?,?,?,?,?,?,?,?,?) ' .
+         'ON DUPLICATE KEY UPDATE amount=?, deleted=?');
 
 my $sth_wipe_balances = $dbh->prepare
     ('DELETE FROM BALANCES WHERE network=? AND block_num >= ? AND block_num < ?');
@@ -183,7 +184,8 @@ sub process_data
                         
                         $sth_add_balance->execute
                             ($network, $kvo->{'scope'}, $data->{'block_num'}, $block_time,
-                             $contract, $currency, $amount, $decimals, $deleted);
+                             $contract, $currency, $amount, $decimals, $deleted,
+                             $amount, $deleted);
                     }
                 }
             }
