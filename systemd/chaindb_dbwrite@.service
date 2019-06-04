@@ -1,0 +1,20 @@
+[Unit]
+Description=chaindb DB Writer
+
+[Service]
+Type=simple
+Environment="CHAINDB_HOME=/opt/eosio_chaindb"
+EnvironmentFile=/etc/default/chaindb_%i
+
+ExecStart=/usr/bin/perl ${CHAINDB_HOME}/scripts/chaindb_dbwriter.pl --network=%i $DBWRITE_OPTS
+TimeoutSec=45s
+Restart=always
+User=root
+Group=daemon
+KillMode=control-group
+
+
+[Install]
+WantedBy=multi-user.target
+
+

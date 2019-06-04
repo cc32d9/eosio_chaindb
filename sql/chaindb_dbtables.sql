@@ -50,9 +50,23 @@ CREATE TABLE BALANCES
  deleted           TINYINT NOT NULL    
 ) ENGINE=InnoDB;
 
-CREATE UNIQUE INDEX BALANCES_I01 ON BALANCES (network, account_name, contract, currency, block_num );
+CREATE UNIQUE INDEX BALANCES_I01 ON BALANCES (network, account_name, contract, currency, block_num);
+CREATE INDEX BALANCES_I02 ON BALANCES (network, block_num);
 
 
+CREATE TABLE USERRES
+(
+ network           VARCHAR(15) NOT NULL,
+ account_name      VARCHAR(13) NOT NULL,
+ block_num         BIGINT NOT NULL,
+ block_time        DATETIME NOT NULL,
+ cpu_weight        BIGINT UNSIGNED NOT NULL,
+ net_weight        BIGINT UNSIGNED NOT NULL,
+ ram_bytes         BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX USERRES_I01 ON USERRES (network, account_name, block_num);
+CREATE INDEX USERRES_I02 ON USERRES (network, block_num);
 
 
 

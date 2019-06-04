@@ -78,9 +78,21 @@ my $sth_wipe_balances = $dbh->prepare
     ('DELETE FROM BALANCES WHERE network=? AND block_num >= ? AND block_num < ?');
 
 
+my $sth_add_userres = $dbh->prepare
+        ('INSERT INTO USERRES ' . 
+         '(network, account_name, block_num, block_time, cpu_weight, net_weight, ram_bytes) ' .
+         'VALUES(?,?,?,?,?,?,?)');
+
+my $sth_wipe_userres = $dbh->prepare
+    ('DELETE FROM USERRES WHERE network=? AND block_num >= ? AND block_num < ?');
+
+
 my $committed_block = 0;
 my $uncommitted_block = 0;
 my $json = JSON->new;
+
+my %alldecimals;
+
 
 Net::WebSocket::Server->new(
     listen => $port,
@@ -135,6 +147,7 @@ sub process_data
         print STDERR "fork at $block_num\n";
         $sth_wipe_transfers->execute($network, $block_num, $endblock);
         $sth_wipe_balances->execute($network, $block_num, $endblock);
+        $sth_wipe_userres->execute($network, $block_num, $endblock);
         $dbh->commit();
         $committed_block = $block_num;
         $uncommitted_block = 0;
@@ -155,16 +168,11 @@ sub process_data
                     {
                         my $amount = $1;
                         my $currency = $2;
+                        my $contract = $kvo->{'code'};
                         my $block_time = $data->{'block_timestamp'};
                         $block_time =~ s/T/ /;
                         
-                        my $decimals = 0;
-                        my $pos = index($amount, '.');
-                        if( $pos > -1 )
-                        {
-                            $decimals = length($amount) - $pos - 1;
-                        }
-                        
+                        my $decimals = get_decimals($contract, $amount, $currency);
                         $amount *= 10**$decimals;
                          
                         my $deleted = ($data->{'added'} eq 'true')?0:1;
@@ -175,8 +183,24 @@ sub process_data
                         
                         $sth_add_balance->execute
                             ($network, $kvo->{'scope'}, $data->{'block_num'}, $block_time,
-                             $kvo->{'code'}, $currency, $amount, $decimals, $deleted);
+                             $contract, $currency, $amount, $decimals, $deleted);
                     }
+                }
+            }
+            elsif( $kvo->{'code'} eq 'eosio' )
+            {
+                if( $kvo->{'table'} eq 'userres' )
+                {
+                    my ($cpu, $curr1) = split(/\s/, $kvo->{'value'}{'cpu_weight'});
+                    my ($net, $curr2) = split(/\s/, $kvo->{'value'}{'net_weight'});
+                    my $block_time = $data->{'block_timestamp'};
+                    $block_time =~ s/T/ /;
+
+                    my $precision = 10 ** get_decimals('eosio.token', $cpu, $curr1);
+                    
+                    $sth_add_userres->execute
+                        ($network, $kvo->{'value'}{'owner'}, $data->{'block_num'}, $block_time,
+                         $cpu*$precision, $net*$precision, $kvo->{'value'}{'ram_bytes'});
                 }
             }
         }
@@ -187,20 +211,17 @@ sub process_data
         if( $trace->{'status'} eq 'executed' )
         {
             my $block_num = $data->{'block_num'};
-            my $trx_id = $trace->{'transaction_id'};
+            my $trx_id = $trace->{'id'};
             my $block_time = $data->{'block_timestamp'};
             $block_time =~ s/T/ /;
-            
-            my $tx = {'block_num' => $block_num,
-                      'block_time' => $block_time,
-                      'trx_id' => $trx_id};
-            
+                        
             foreach my $atrace (@{$trace->{'action_traces'}})
             {
                 my $act = $atrace->{'act'};
+                my $contract = $act->{'account'};
                 my $receipt = $atrace->{'receipt'};
                 
-                if( $atrace->{'receipt'}{'receiver'} eq $act->{'account'} )
+                if( $atrace->{'receipt'}{'receiver'} eq $contract )
                 {
                     my $seq = $receipt->{'global_sequence'};
                     my $aname = $act->{'name'};
@@ -214,23 +235,17 @@ sub process_data
                             if( defined($amount) and defined($currency) and
                                 $amount =~ /^[0-9.]+$/ and $currency =~ /^[A-Z]{1,7}$/ )
                             {
-                                my $decimals = 0;
-                                my $pos = index($amount, '.');
-                                if( $pos > -1 )
-                                {
-                                    $decimals = length($amount) - $pos - 1;
-                                }
-                                
+                                my $decimals = get_decimals($contract, $amount, $currency);
                                 $amount *= 10**$decimals;
                                 
                                 $sth_add_transfer->execute
                                     (
                                      $network,
                                      $seq,
-                                     $tx->{'block_num'},
-                                     $tx->{'block_time'},
-                                     $tx->{'trx_id'},
-                                     $act->{'account'},
+                                     $block_num,
+                                     $block_time,
+                                     $trx_id,
+                                     $contract,
                                      $currency,
                                      $amount,
                                      $decimals,
@@ -270,5 +285,28 @@ sub process_data
 }
 
 
+
+sub get_decimals
+{
+    my $contract = shift;
+    my $amount = shift;
+    my $currency = shift;
+
+    if( not defined($alldecimals{$contract}{$currency}) )
+    {
+        my $decimals = 0;
+        my $pos = index($amount, '.');
+        if( $pos > -1 )
+        {
+            $decimals = length($amount) - $pos - 1;
+        }
+
+        $alldecimals{$contract}{$currency} = $decimals;
+        return $decimals;
+    }
+
+    return $alldecimals{$contract}{$currency};
+}
+    
 
    
