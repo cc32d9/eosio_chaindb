@@ -36,6 +36,31 @@ CREATE INDEX TRANSFERS_I08 ON TRANSFERS (network,tx_from, block_num);
 CREATE INDEX TRANSFERS_I09 ON TRANSFERS (network,contract, block_num);
 
 
+CREATE TABLE ISSUANCES
+(
+ network     VARCHAR(15) NOT NULL,
+ seq         BIGINT UNSIGNED NOT NULL,
+ block_num   BIGINT NOT NULL,
+ block_time  DATETIME NOT NULL,
+ trx_id      VARCHAR(64) NOT NULL,
+ contract    VARCHAR(13) NOT NULL,
+ currency    VARCHAR(8) NOT NULL,
+ amount      BIGINT NOT NULL,
+ decimals    TINYINT NOT NULL,
+ tx_to       VARCHAR(13) NOT NULL,
+ memo        TEXT
+)  ENGINE=InnoDB;
+
+
+CREATE UNIQUE INDEX ISSUANCES_i01 ON ISSUANCES (network,seq);
+CREATE INDEX ISSUANCES_I02 ON ISSUANCES (network,block_num);
+CREATE INDEX ISSUANCES_I03 ON ISSUANCES (network,block_time);
+CREATE INDEX ISSUANCES_I04 ON ISSUANCES (network,trx_id(8));
+CREATE INDEX ISSUANCES_I05 ON ISSUANCES (network,tx_to, contract, currency, block_num);
+CREATE INDEX ISSUANCES_I06 ON ISSUANCES (network,tx_to, block_num);
+CREATE INDEX ISSUANCES_I07 ON ISSUANCES (network,contract, block_num);
+
+
 
 CREATE TABLE BALANCES
  (
@@ -52,6 +77,23 @@ CREATE TABLE BALANCES
 
 CREATE UNIQUE INDEX BALANCES_I01 ON BALANCES (network, account_name, contract, currency, block_num);
 CREATE INDEX BALANCES_I02 ON BALANCES (network, block_num);
+
+
+CREATE TABLE BALANCES_EXT
+ (
+ network           VARCHAR(15) NOT NULL,
+ account_name      VARCHAR(13) NOT NULL,
+ block_num         BIGINT NOT NULL,
+ block_time        DATETIME NOT NULL,
+ contract          VARCHAR(13) NOT NULL,
+ field             VARCHAR(14) NOT NULL,
+ value             VARCHAR(256) NOT NULL,
+ deleted           TINYINT NOT NULL    
+) ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX BALANCES_EXT_I01 ON BALANCES_EXT (network, account_name, contract, field, block_num);
+CREATE INDEX BALANCES_EXT_I02 ON BALANCES_EXT (network, account_name, contract, field, value);
+
 
 
 CREATE TABLE USERRES

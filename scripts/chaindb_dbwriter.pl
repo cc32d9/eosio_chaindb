@@ -69,6 +69,17 @@ my $sth_wipe_transfers = $dbh->prepare
     ('DELETE FROM TRANSFERS WHERE network=? AND block_num >= ? AND block_num < ?');
 
 
+my $sth_add_issuance = $dbh->prepare
+    ('INSERT INTO ISSUANCES ' .
+     '(network, seq, block_num, block_time, trx_id, ' .
+     'contract, currency, amount, decimals, tx_to, memo) ' .
+     'VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+
+
+my $sth_wipe_issuances = $dbh->prepare
+    ('DELETE FROM ISSUANCES WHERE network=? AND block_num >= ? AND block_num < ?');
+
+
 my $sth_add_balance = $dbh->prepare
         ('INSERT INTO BALANCES ' . 
          '(network, account_name, block_num, block_time, contract, currency, amount, decimals, deleted) ' .
@@ -77,6 +88,17 @@ my $sth_add_balance = $dbh->prepare
 
 my $sth_wipe_balances = $dbh->prepare
     ('DELETE FROM BALANCES WHERE network=? AND block_num >= ? AND block_num < ?');
+
+
+my $sth_add_balext = $dbh->prepare
+        ('INSERT INTO BALANCES_EXT ' . 
+         '(network, account_name, block_num, block_time, contract, field, value, deleted) ' .
+         'VALUES(?,?,?,?,?,?,?,?) ' .
+         'ON DUPLICATE KEY UPDATE value=?, deleted=?');
+
+my $sth_wipe_balext = $dbh->prepare
+    ('DELETE FROM BALANCES_EXT WHERE network=? AND block_num >= ? AND block_num < ?');
+
 
 
 my $sth_add_userres = $dbh->prepare
@@ -147,7 +169,9 @@ sub process_data
         my $block_num = $data->{'block_num'};
         print STDERR "fork at $block_num\n";
         $sth_wipe_transfers->execute($network, $block_num, $endblock);
+        $sth_wipe_issuances->execute($network, $block_num, $endblock);
         $sth_wipe_balances->execute($network, $block_num, $endblock);
+        $sth_wipe_balext->execute($network, $block_num, $endblock);
         $sth_wipe_userres->execute($network, $block_num, $endblock);
         $dbh->commit();
         $committed_block = $block_num;
@@ -161,8 +185,8 @@ sub process_data
         {
             if( $kvo->{'table'} eq 'accounts' )
             {
-                if( defined($kvo->{'value'}{'balance'}) and
-                    $kvo->{'scope'} =~ /^[a-z0-5.]+$/ )
+                my $account = $kvo->{'scope'};
+                if( defined($kvo->{'value'}{'balance'}) and $account =~ /^[a-z0-5.]+$/ )
                 {
                     my $bal = $kvo->{'value'}{'balance'};
                     if( $bal =~ /^([0-9.]+) ([A-Z]{1,7})$/ )
@@ -183,9 +207,24 @@ sub process_data
                         }
                         
                         $sth_add_balance->execute
-                            ($network, $kvo->{'scope'}, $data->{'block_num'}, $block_time,
+                            ($network, $account, $data->{'block_num'}, $block_time,
                              $contract, $currency, $amount, $decimals, $deleted,
                              $amount, $deleted);
+                        
+                        if( $contract ne 'eosio.token' and scalar(keys %{$kvo->{'value'}}) > 1 )
+                        {
+                            foreach my $field (keys %{$kvo->{'value'}})
+                            {
+                                if( $field ne 'balance' )
+                                {
+                                    my $val = $kvo->{'value'}{$field};
+                                    $sth_add_balext->execute
+                                        ($network, $account, $data->{'block_num'}, $block_time,
+                                         $contract, $field, $val, $deleted,
+                                         $val, $deleted);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -240,21 +279,41 @@ sub process_data
                                 my $decimals = get_decimals($contract, $amount, $currency);
                                 $amount *= 10**$decimals;
                                 
-                                $sth_add_transfer->execute
-                                    (
-                                     $network,
-                                     $seq,
-                                     $block_num,
-                                     $block_time,
-                                     $trx_id,
-                                     $contract,
-                                     $currency,
-                                     $amount,
-                                     $decimals,
-                                     $data->{'from'},
-                                     $data->{'to'},
-                                     $data->{'memo'}
-                                    );
+                                if( $aname eq 'transfer' )
+                                {
+                                    $sth_add_transfer->execute
+                                        (
+                                         $network,
+                                         $seq,
+                                         $block_num,
+                                         $block_time,
+                                         $trx_id,
+                                         $contract,
+                                         $currency,
+                                         $amount,
+                                         $decimals,
+                                         $data->{'from'},
+                                         $data->{'to'},
+                                         $data->{'memo'}
+                                        );
+                                }
+                                else
+                                {
+                                    $sth_add_issuance->execute
+                                        (
+                                         $network,
+                                         $seq,
+                                         $block_num,
+                                         $block_time,
+                                         $trx_id,
+                                         $contract,
+                                         $currency,
+                                         $amount,
+                                         $decimals,
+                                         $data->{'to'},
+                                         $data->{'memo'}
+                                        );
+                                }
                             }
                         }
                     }
