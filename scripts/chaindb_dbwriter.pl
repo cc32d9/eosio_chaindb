@@ -24,7 +24,7 @@ my $network;
 my $dsn = 'DBI:MariaDB:database=chaindb;host=localhost';
 my $db_user = 'chaindb';
 my $db_password = 'ce5Sxish';
-my $commit_every = 10;
+my $commit_every = 100;
 my $endblock = 2**32 - 1;
     
 my $ok = GetOptions
@@ -174,9 +174,9 @@ sub process_data
         $sth_wipe_balext->execute($network, $block_num, $endblock);
         $sth_wipe_userres->execute($network, $block_num, $endblock);
         $dbh->commit();
-        $committed_block = $block_num;
+        $committed_block = $block_num-1;
         $uncommitted_block = 0;
-        return $block_num;
+        return $committed_block;
     }
     elsif( $msgtype == 1007 ) # CHRONICLE_MSGTYPE_TBL_ROW
     {
