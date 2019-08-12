@@ -100,6 +100,14 @@ my $sth_wipe_balext = $dbh->prepare
     ('DELETE FROM BALANCES_EXT WHERE network=? AND block_num >= ? AND block_num < ?');
 
 
+my $sth_add_delband = $dbh->prepare
+        ('INSERT INTO DELBAND ' . 
+         '(network, account_name, del_from, block_num, block_time, cpu_weight, net_weight) ' .
+         'VALUES(?,?,?,?,?,?,?) ' .
+         'ON DUPLICATE KEY UPDATE cpu_weight=?, net_weight=?');
+
+my $sth_wipe_delband = $dbh->prepare
+    ('DELETE FROM DELBAND WHERE network=? AND block_num >= ? AND block_num < ?');
 
 my $sth_add_userres = $dbh->prepare
         ('INSERT INTO USERRES ' . 
@@ -108,6 +116,25 @@ my $sth_add_userres = $dbh->prepare
 
 my $sth_wipe_userres = $dbh->prepare
     ('DELETE FROM USERRES WHERE network=? AND block_num >= ? AND block_num < ?');
+
+
+my $sth_add_rexfund = $dbh->prepare
+    ('INSERT INTO REXFUND ' . 
+     '(network, account_name, block_num, block_time, balance) ' .
+     'VALUES(?,?,?,?,?) ' .
+     'ON DUPLICATE KEY UPDATE balance=?');
+
+my $sth_wipe_rexfund = $dbh->prepare
+    ('DELETE FROM REXFUND WHERE network=? AND block_num >= ? AND block_num < ?');
+
+my $sth_add_rexbal = $dbh->prepare
+    ('INSERT INTO REXBAL ' . 
+     '(network, account_name, block_num, block_time, vote_stake, rex_balance) ' .
+     'VALUES(?,?,?,?,?,?) ' .
+     'ON DUPLICATE KEY UPDATE vote_stake=?, rex_balance=?');
+
+my $sth_wipe_rexbal = $dbh->prepare
+    ('DELETE FROM REXBAL WHERE network=? AND block_num >= ? AND block_num < ?');
 
 
 my $committed_block = 0;
@@ -172,7 +199,10 @@ sub process_data
         $sth_wipe_issuances->execute($network, $block_num, $endblock);
         $sth_wipe_balances->execute($network, $block_num, $endblock);
         $sth_wipe_balext->execute($network, $block_num, $endblock);
+        $sth_wipe_delband->execute($network, $block_num, $endblock);
         $sth_wipe_userres->execute($network, $block_num, $endblock);
+        $sth_wipe_rexfund->execute($network, $block_num, $endblock);
+        $sth_wipe_rexbal->execute($network, $block_num, $endblock);
         $dbh->commit();
         $committed_block = $block_num-1;
         $uncommitted_block = 0;
@@ -230,7 +260,27 @@ sub process_data
             }
             elsif( $kvo->{'code'} eq 'eosio' )
             {
-                if( $kvo->{'table'} eq 'userres' )
+                if( $kvo->{'table'} eq 'delband' )
+                {
+                    my ($cpu, $curr1) = split(/\s/, $kvo->{'value'}{'cpu_weight'});
+                    my ($net, $curr2) = split(/\s/, $kvo->{'value'}{'net_weight'});
+                    my $block_time = $data->{'block_timestamp'};
+                    $block_time =~ s/T/ /;
+
+                    my $precision = 10 ** get_decimals('eosio.token', $cpu, $curr1);
+                    $cpu *= $precision;
+                    $net *= $precision;
+                    if( $data->{'added'} eq 'false' )
+                    {
+                        $cpu = 0;
+                        $net = 0;
+                    }
+                    
+                    $sth_add_delband->execute
+                        ($network, $kvo->{'value'}{'to'}, $kvo->{'value'}{'from'}, $data->{'block_num'},
+                         $block_time, $cpu, $net, $cpu, $net);
+                }
+                elsif( $kvo->{'table'} eq 'userres' )
                 {
                     my ($cpu, $curr1) = split(/\s/, $kvo->{'value'}{'cpu_weight'});
                     my ($net, $curr2) = split(/\s/, $kvo->{'value'}{'net_weight'});
@@ -243,6 +293,43 @@ sub process_data
                         ($network, $kvo->{'value'}{'owner'}, $data->{'block_num'}, $block_time,
                          $cpu*$precision, $net*$precision, $kvo->{'value'}{'ram_bytes'});
                 }
+                elsif( $kvo->{'table'} eq 'rexfund' )
+                {
+                    my ($bal, $curr) = split(/\s/, $kvo->{'value'}{'balance'});
+                    my $block_time = $data->{'block_timestamp'};
+                    $block_time =~ s/T/ /;
+
+                    $bal *= (10 ** get_decimals('eosio.token', $bal, $curr));
+                    if( $data->{'added'} eq 'false' )
+                    {
+                        $bal = 0;
+                    }
+                    
+                    $sth_add_rexfund->execute
+                        ($network, $kvo->{'value'}{'owner'}, $data->{'block_num'}, $block_time,
+                         $bal, $bal);
+                }
+                elsif( $kvo->{'table'} eq 'rexbal' )
+                {
+                    my ($stake, $curr1) = split(/\s/, $kvo->{'value'}{'vote_stake'});
+                    my ($rex, $curr2) = split(/\s/, $kvo->{'value'}{'rex_balance'});
+                    my $block_time = $data->{'block_timestamp'};
+                    $block_time =~ s/T/ /;
+
+                    my $precision = 10 ** get_decimals('eosio.token', $stake, $curr1);
+                    $stake *= $precision;
+                    $rex *= $precision;
+                    
+                    if( $data->{'added'} eq 'false' )
+                    {
+                        $stake = 0;
+                        $rex = 0;
+                    }
+                    
+                    $sth_add_rexbal->execute
+                        ($network, $kvo->{'value'}{'owner'}, $data->{'block_num'}, $block_time,
+                         $stake, $rex, $stake, $rex);
+                }                
             }
         }
     }

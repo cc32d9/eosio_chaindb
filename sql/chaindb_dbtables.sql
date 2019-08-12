@@ -27,7 +27,6 @@ CREATE TABLE TRANSFERS
 
 CREATE UNIQUE INDEX TRANSFERS_i01 ON TRANSFERS (network,seq);
 CREATE INDEX TRANSFERS_I02 ON TRANSFERS (network,block_num);
-CREATE INDEX TRANSFERS_I03 ON TRANSFERS (network,block_time);
 CREATE INDEX TRANSFERS_I04 ON TRANSFERS (network,trx_id(8));
 CREATE INDEX TRANSFERS_I05 ON TRANSFERS (network,tx_from, contract, currency, block_num);
 CREATE INDEX TRANSFERS_I06 ON TRANSFERS (network,tx_to, contract, currency, block_num);
@@ -54,7 +53,6 @@ CREATE TABLE ISSUANCES
 
 CREATE UNIQUE INDEX ISSUANCES_i01 ON ISSUANCES (network,seq);
 CREATE INDEX ISSUANCES_I02 ON ISSUANCES (network,block_num);
-CREATE INDEX ISSUANCES_I03 ON ISSUANCES (network,block_time);
 CREATE INDEX ISSUANCES_I04 ON ISSUANCES (network,trx_id(8));
 CREATE INDEX ISSUANCES_I05 ON ISSUANCES (network,tx_to, contract, currency, block_num);
 CREATE INDEX ISSUANCES_I06 ON ISSUANCES (network,tx_to, block_num);
@@ -93,7 +91,24 @@ CREATE TABLE BALANCES_EXT
 
 CREATE UNIQUE INDEX BALANCES_EXT_I01 ON BALANCES_EXT (network, account_name, contract, field, block_num);
 CREATE INDEX BALANCES_EXT_I02 ON BALANCES_EXT (network, account_name, contract, field, value);
+CREATE INDEX BALANCES_EXT_I03 ON BALANCES_EXT (network, block_num);
 
+
+
+CREATE TABLE DELBAND
+(
+ network           VARCHAR(15) NOT NULL,
+ account_name      VARCHAR(13) NOT NULL,
+ del_from          VARCHAR(13) NOT NULL,
+ block_num         BIGINT NOT NULL,
+ block_time        DATETIME NOT NULL,
+ cpu_weight        BIGINT UNSIGNED NOT NULL,
+ net_weight        BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX DELBAND_I01 ON DELBAND (network, account_name, del_from, block_num);
+CREATE INDEX DELBAND_I02 ON DELBAND (network, del_from, block_num);
+CREATE INDEX DELBAND_I03 ON DELBAND (network, block_num);
 
 
 CREATE TABLE USERRES
@@ -110,6 +125,33 @@ CREATE TABLE USERRES
 CREATE UNIQUE INDEX USERRES_I01 ON USERRES (network, account_name, block_num);
 CREATE INDEX USERRES_I02 ON USERRES (network, block_num);
 
+
+
+
+CREATE TABLE REXFUND
+ (
+ network           VARCHAR(15) NOT NULL,
+ account_name      VARCHAR(13) NOT NULL,
+ block_num         BIGINT NOT NULL,
+ block_time        DATETIME NOT NULL,
+ balance           BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX REXFUND_I01 ON REXFUND (network, account_name, block_num);
+CREATE INDEX REXFUND_I02 ON REXFUND (network, block_num);
+
+CREATE TABLE REXBAL
+ (
+ network           VARCHAR(15) NOT NULL,
+ account_name      VARCHAR(13) NOT NULL,
+ block_num         BIGINT NOT NULL,
+ block_time        DATETIME NOT NULL,
+ vote_stake        BIGINT UNSIGNED NOT NULL,
+ rex_balance       BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB;
+
+CREATE UNIQUE INDEX REXBAL_I01 ON REXBAL (network, account_name, block_num);
+CREATE INDEX REXBAL_I02 ON REXBAL (network, block_num);
 
 
 
