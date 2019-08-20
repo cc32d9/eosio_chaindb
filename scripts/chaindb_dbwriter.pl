@@ -61,8 +61,8 @@ die($DBI::errstr) unless $dbh;
 my $sth_add_transfer = $dbh->prepare
     ('INSERT INTO TRANSFERS ' .
      '(network, seq, block_num, block_time, trx_id, ' .
-     'contract, currency, amount, decimals, tx_from, tx_to, memo) ' .
-     'VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
+     'contract, currency, amount, decimals, tx_from, tx_to) ' .
+     'VALUES(?,?,?,?,?,?,?,?,?,?,?)');
 
 
 my $sth_wipe_transfers = $dbh->prepare
@@ -72,8 +72,8 @@ my $sth_wipe_transfers = $dbh->prepare
 my $sth_add_issuance = $dbh->prepare
     ('INSERT INTO ISSUANCES ' .
      '(network, seq, block_num, block_time, trx_id, ' .
-     'contract, currency, amount, decimals, tx_to, memo) ' .
-     'VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+     'contract, currency, amount, decimals, tx_to) ' .
+     'VALUES(?,?,?,?,?,?,?,?,?,?)');
 
 
 my $sth_wipe_issuances = $dbh->prepare
@@ -381,7 +381,6 @@ sub process_data
                                          $decimals,
                                          $data->{'from'},
                                          $data->{'to'},
-                                         $data->{'memo'}
                                         );
                                 }
                                 else
@@ -398,7 +397,6 @@ sub process_data
                                          $amount,
                                          $decimals,
                                          $data->{'to'},
-                                         $data->{'memo'}
                                         );
                                 }
                             }

@@ -20,8 +20,7 @@ CREATE TABLE TRANSFERS
  amount      BIGINT NOT NULL,
  decimals    TINYINT NOT NULL,
  tx_from     VARCHAR(13) NULL,
- tx_to       VARCHAR(13) NOT NULL,
- memo        TEXT
+ tx_to       VARCHAR(13) NOT NULL
 )  ENGINE=InnoDB;
 
 
@@ -46,8 +45,7 @@ CREATE TABLE ISSUANCES
  currency    VARCHAR(8) NOT NULL,
  amount      BIGINT NOT NULL,
  decimals    TINYINT NOT NULL,
- tx_to       VARCHAR(13) NOT NULL,
- memo        TEXT
+ tx_to       VARCHAR(13) NOT NULL
 )  ENGINE=InnoDB;
 
 
